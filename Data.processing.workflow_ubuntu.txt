@@ -1,0 +1,245 @@
+
+####Data Processing Workflow####
+###List samples for loop###
+samples=( SUL_LT49_bnd \
+          SUL_NC49_Inp \
+          SUL_NL49_bnd \
+          SUL_TC49_bnd \
+          SUL_LT51_bnd \
+          SUL_LT51_Inp \
+          SUL_NC51_Inp \
+          SUL_NL51_bnd \
+          SUL_TC51_bnd \
+          SUL_LT52_bnd \
+          SUL_LT52_Inp \
+SUL_NC52_bnd \
+          SUL_NC52_Inp \
+          SUL_NL52_bnd \
+          SUL_TC52_bnd \
+          SUL_LT53_bnd \
+          SUL_LT53_Inp \
+          SUL_NC53_Inp \
+          SUL_NL53_bnd \
+          SUL_TC53_bnd \
+          SUL_LT55_bnd \
+          SUL_LT55_Inp \
+          SUL_NC55_Inp \
+          SUL_NL55_bnd \
+SUL_NC51_bnd \
+SUL_NC49_bnd \
+SUL_NC53_bnd )
+
+###Trim adapter sequences using loop###
+for sample in "${samples[@]}"; do 
+fastp  -i "${sample}"_chr_reads_chr19.fastq.gz  -o "${sample}"_trimmed_fastp.fastq
+done 
+
+###Run QC###
+fastqc *.fastq
+multiqc .
+
+###Align trimmed sequences to reference human genome GRCh38 using a loop###
+for sample in "${samples[@]}"; do 
+bowtie2  --local  -x /mnt/e/Project/GRCh38/bt2index/GRCh38_noalt_as \
+ -U ${sample}_trimmed_fastp.fastq 2> ${sample}_fastp.QC.txt \
+| samtools sort > ${sample}_aligned_fastp.bam 
+done
+
+###Filter aligned sequences against blacklist to remove blacklisted regions of genome using a loop###
+for sample in "${samples[@]}"; do 
+bedtools intersect  -v  -abam ${sample}_aligned_fastp.bam  -b /mnt/e/Project/blacklisted_regions/MergedGreyList.bed > ${sample}_aligned_fastp.FILTERED.bam
+done
+
+###Filter against chromosome 19 so only reads aligned to chromosome 19 are returned###
+for sample in "${samples[@]}"; do 
+samtools view  -b ${sample}_aligned_fastp.FILTERED.bam chr19 > ${sample}_aligned_fastp.VIEW-FILTERED.chr19.bam
+done
+
+####Inp file QC####
+samples=( SUL_LT51_Inp \
+SUL_LT52_Inp \
+SUL_LT53_Inp \
+SUL_LT55_Inp \
+SUL_NC49_Inp \
+SUL_NC51_Inp \
+SUL_NC52_Inp \
+SUL_NC53_Inp \
+SUL_NC55_Inp )
+
+###Index files required to be used by bamCoverage###
+for sample in "${samples[@]}"; do 
+samtools index ${sample}_aligned_fastp.VIEW-FILTERED.chr19.bam
+done
+
+###Generate bigwig files to visualise tracks on Intergative Genomics Viewer###
+for sample in "${samples[@]}"; do 
+bamCoverage  -b  ${sample}_aligned_fastp.VIEW-FILTERED.chr19.bam  -o  ${sample}_aligned_fastp.VIEW-FILTERED.bamcoverage.bw 
+done
+
+###Convert to multibamsummary file###
+multiBamSummary bins  -b SUL_LT49_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NC49_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NL49_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_TC49_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT51_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT51_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NC51_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NL51_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_TC51_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT52_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT52_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+SUL_NC52_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+  SUL_NC52_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NL52_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_TC52_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT53_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT53_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NC53_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NL53_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_TC53_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT55_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_LT55_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NC55_Inp_aligned_fastp.VIEW-FILTERED.chr19.bam \
+          SUL_NL55_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+SUL_NC51_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+SUL_NC49_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+SUL_NC53_bnd_aligned_fastp.VIEW-FILTERED.chr19.bam \
+  -o aligned_fastp.VIEW-FILTERED.bam.files_multibamsummary.ngz
+
+###Plot correlation heatmap###
+plotCorrelation  -in aligned_fastp.VIEW-FILTERED.bam.files_multibamsummary.ngz  \
+-l LT_49_bnd \
+NC_49_Inp \
+NL_49_bnd \
+TC_49_bnd \
+LT_51_bnd \
+LT_51_Inp \
+NC_51_Inp \
+NL_51_bnd \
+TC_51_bnd \
+LT_52_bnd \
+LT_52_Inp \
+NC_52_bnd \
+NC_52_Inp \
+NL_52_bnd \
+TC_52_bnd \
+LT_53_bnd \
+LT_53_Inp \
+NC_53_Inp \
+NL_53_bnd \
+TC_53_bnd \
+LT_55_bnd \
+LT_55_Inp \
+NC_55_Inp \
+NL_55_bnd \
+NC_51_bnd \
+NC_49_bnd \
+NC_53_bnd \
+  -c pearson  -p heatmap  -o plotCorrelation_aligned_fastp_VIEW-FILTERED_201113_all.png
+
+###Plot PCA###
+plotPCA  -in aligned_fastp.VIEW-FILTERED.bam.files_multibamsummary.ngz \
+-l LT_49_bnd \
+NC_49_Inp \
+NL_49_bnd \
+TC_49_bnd \
+LT_51_bnd \
+LT_51_Inp \
+NC_51_Inp \
+NL_51_bnd \
+TC_51_bnd \
+LT_52_bnd \
+LT_52_Inp \
+NC_52_bnd \
+NC_52_Inp \
+NL_52_bnd \
+TC_52_bnd \
+LT_53_bnd \
+LT_53_Inp \
+NC_53_Inp \
+NL_53_bnd \
+TC_53_bnd \
+LT_55_bnd \
+LT_55_Inp \
+NC_55_Inp \
+NL_55_bnd \
+NC_51_bnd \
+NC_49_bnd \
+NC_53_bnd \	
+--colors red \
+black \
+green \
+yellow \
+red \
+black \
+black \
+green \
+yellow \
+red \
+black \
+blue \
+black \
+green \
+yellow \
+red \
+black \
+black \
+green \
+yellow \
+red \
+black \
+black \
+green \
+blue \
+blue \
+blue \
+--markers '<' \
+'<' \
+'<' \
+'<' \
+'o' \
+'o' \
+'o' \
+'o' \
+'o' \
+'s' \
+'s' \
+'s' \
+'s' \
+'s' \
+'s' \
+'>' \
+'>' \
+'>' \
+'>' \
+'>' \
+'^' \
+'^' \
+'^' \
+'^' \
+'o' \
+'<' \
+'>' \
+--plotFile plotPCA_aligned_fastp_VIEW-FILTERED_grouped_201113_all.png
+
+#### Back to main data processing workflow ####
+###Merge Inp files###
+samtools merge Merged_Inp.bam SUL_NC49_Inp_aligned_fastp.FILTERED.bam \
+          SUL_LT51_Inp_aligned_fastp.FILTERED.bam \
+          SUL_NC51_Inp_aligned_fastp.FILTERED.bam \
+          SUL_LT52_Inp_aligned_fastp.FILTERED.bam \
+          SUL_NC52_Inp_aligned_fastp.FILTERED.bam \
+          SUL_LT53_Inp_aligned_fastp.FILTERED.bam \
+          SUL_NC53_Inp_aligned_fastp.FILTERED.bam \
+          SUL_LT55_Inp_aligned_fastp.FILTERED.bam \
+          SUL_NC55_Inp_aligned_fastp.FILTERED.bam 
+
+###Peak calling with MACS2###
+for sample in "${samples[@]}"; do 
+macs2 callpeak  -t "${sample}".VIEW-FILTERED.chr19.bam \
+	-c Merged_Inp.bam \
+ 	-f BAM  -g hs \
+	-n "${sample}".VIEW-FILTERED.chr19.macs2 \
+	-q 0.1 \
+	--outdir macs2
+
