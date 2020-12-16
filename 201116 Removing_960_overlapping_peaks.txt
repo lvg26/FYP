@@ -1,0 +1,34 @@
+
+In R:
+SampleList <- read.csv("E:/Project/Bioinformatics_R_no_LT_51/Spreadsheets/SampleList_Larapath_no_LT_51.csv", header=T) 
+myDBA <- dba(sampleSheet="E:/Project/Bioinformatics_R_no_LT_51/Spreadsheets/SampleList_Larapath_no_LT_51.csv")
+TCLTNCNL.dba <- dba(myDBA)
+myDBA_consensus_TCLTNCNL <- dba.peakset(TCLTNCNL.dba, consensus=c(DBA_TISSUE,DBA_CONDITION), minOverlap=2) 
+myDBA_consensus_TCLTNCNL <- dba(myDBA_consensus_TCLTNCNL, mask=myDBA_consensus_TCLTNCNL$masks$Consensus, minOverlap=1) 
+consensus_peaks_TCLTNCNL <- dba.peakset(myDBA_consensus_TCLTNCNL, bRetrieve=TRUE)
+vennpeaksall <- dba.plotVenn(myDBA_consensus_TCLTNCNL, myDBA_consensus_TCLTNCNL$masks$Consensus, main = "Occupancy analysis all 4 phenotypes", label1 = "LT", 
+             label2 = "NC", label3 = "NL", label4 = "TC")
+peaksinall <- vennpeaksall$inAll
+
+bed <- data.frame(seqnames=seqnames(peaksinall),
+                  starts=start(peaksinall)-1,
+                  ends=end(peaksinall))
+write.table(bed, file = "peaksinall.bed", quote = F, sep = "\t", row.names = F, col.names = F)
+
+In ubuntu command line:
+bedtools intersect  -v  -a ${sample}-chr19_macs2_peaks.narrowPeak -b /mnt/e/blacklist_file/peaksInAll.bed > ${sample}filtered_peak1.narrowPeak
+
+In R:
+SampleList_bed <- read.csv("E:/Project/Bioinformatics_R/Spreadsheets/Sample_lists/SampleList_Larapath_noSUL_noLT51_bed.csv", header=T) 
+myDBA_bed <- dba(sampleSheet="E:/Project/Bioinformatics_R/Spreadsheets/Sample_lists/SampleList_Larapath_noSUL_noLT51_bed.csv")
+TCLTNCNL_bed.dba <- dba(myDBA_bed)
+TCLTNCNL_bed.dba
+myDBA_consensus_TCLTNCNL_bed <- dba.peakset(TCLTNCNL_bed.dba, consensus=c(DBA_TISSUE,DBA_CONDITION), minOverlap=2)
+myDBA_consensus_TCLTNCNL_bed <- dba(myDBA_consensus_TCLTNCNL_bed, mask=myDBA_consensus_TCLTNCNL_bed$masks$Consensus, minOverlap=1)
+consensus_peaks_TCLTNCNL_bed <- dba.peakset(myDBA_consensus_TCLTNCNL_bed, bRetrieve=TRUE)
+TCLTNCNL_bed <- dba.count(TCLTNCNL_bed.dba, peaks=consensus_peaks_TCLTNCNL_bed, summits=250) 
+TCLTNCNL_bed <- dba.normalize(TCLTNCNL_bed) 
+TCLTNCNL_bed
+dba.plotHeatmap(TCLTNCNL_bed, correlations = TRUE, colScheme = "Greens")
+dba.plotHeatmap(TCLTNCNL_bed, correlations = FALSE, colScheme = "Greens")
+dba.plotPCA(TCLTNCNL_bed, label=1, labelSize = 0.6)
