@@ -1,0 +1,37 @@
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("Diffbind")
+BiocManager::install("org.Hs.eg.db")
+BiocManager::install("ChIPpeakAnno")
+
+library(Diffbind)
+library(org.Hs.eg.db)
+library(ChIPpeakAnno)
+
+SampleList <- read.csv("./SampleList_Larapath.csv", header=T) 
+myDBA <- dba(sampleSheet="./SampleList_Larapath.csv", dir="./") 
+NCTC <- dba(myDBA, mask=myDBA$masks$Colon) 
+myDBA_consensus <- dba.peakset(NCTC, consensus=c(DBA_TISSUE,DBA_CONDITION), minOverlap=2) 
+consensus <- dba(myDBA_consensus, mask=myDBA_consensus$masks$Consensus, minOverlap=1)
+NCTC.OL <- dba.overlap(myDBA_consensus, myDBA_consensus$masks$Consensus)
+consensus_peaks <- dba.peakset(consensus, bRetrieve=TRUE)
+NCTC <- dba.count(NCTC, peaks=consensus_peaks, summits=250, bParallel=30) 
+NCTC <- dba.contrast(NCTC, categories=DBA_CONDITION)
+NCTC <- dba.analyze(NCTC)
+NCTC.peaks <- dba.report(NCTC, bCalled=TRUE, th=1)
+
+NCTC.peaks <- annotatePeakInBatch(NCTC.peaks, AnnotationData=TSS.human.GRCh38)
+NCTC.peaks <- addGeneIDs(NCTC.peaks, "org.Hs.eg.db", IDs2Add = c("entrez_id", 'symbol'))
+NCTC.peaks
+
+write.csv(NCTC.peaks, "E:/Project/Bioinformatics_R\\NCTC.peaks.csv", row.names = FALSE)
+UniqueTC <- NCTC.peaks[which(NCTC.peaks$Called1 >=2 & NCTC.peaks$Called2 < 2 & NCTC.peaks$FDR <= 0.1)]
+
+UniqueNC <- NCTC.peaks[which(NCTC.peaks$Called1 < 2 & NCTC.peaks$Called2 >= 2 & NCTC.peaks$FDR <= 0.1)]
+
+DiffPeak <- NCTC.peaks[which(NCTC.peaks$Called1 >=2 & NCTC.peaks$Called2 >= 2 & NCTC.peaks$FDR <= 0.1)]
+
+write.csv(UniqueTC, "E:/Project/Bioinformatics_R\\UniqueTC_TCNC.csv", row.names = FALSE)
+write.csv(UniqueNC, "E:/Project/Bioinformatics_R/Spreadsheets\\UniqueNC_TCNC.csv", row.names = FALSE)
+write.csv(DiffPeak_TCNC, "E:/Project/Bioinformatics_R/Spreadsheets\\DiffPeak_TCNC.csv", row.names = FALSE)
